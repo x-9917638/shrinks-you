@@ -1,35 +1,59 @@
 /**
- * @typedef {keyof HTMLElementTagNameMap} K
+ * @template {keyof HTMLElementTagNameMap} K
  * @param {K} type
  * @returns {HTMLElementTagNameMap[K]}
  */
-function createElement(type) {
-  /*
-  TODO: Minify this function manually to
-    `ident2=ident1=>document.createElement(ident1)`,
-  because for some reason terser doesn't do that.
-  */
+const createElement = (type) => {
   return document.createElement(type);
+};
+
+/**
+ * @template {Node} T
+ * @param {T} node
+ * @returns {T}
+ */
+const appendChild = (node) => {
+  return document.body.appendChild(node);
+};
+
+class Editor {
+  /**
+   * @param {string?} placeholder
+   */
+  constructor(placeholder) {
+    const TEXTAREA = createElement("textarea");
+    TEXTAREA.style = "font:monospace;color:#444";
+    TEXTAREA.placeholder = placeholder ? placeholder : "";
+
+    this.el = TEXTAREA;
+  }
+
+  asHTMLElement() {
+    return this.el;
+  }
 }
 
 function main() {
-  /** @type {HTMLCanvasElement} */
-  const CANVAS = createElement("canvas");
+  const TITLE = appendChild(createElement("h1"));
+  const VERTEX_BUFFER = appendChild(
+    new Editor("Enter vertex code here...").asHTMLElement(),
+  );
+  const FRAGMENT_BUFFER = appendChild(
+    new Editor("Enter fragment code here...").asHTMLElement(),
+  );
+  const CANVAS = appendChild(createElement("canvas"));
+
+  TITLE.textContent = "GLSL Tester";
+
   CANVAS.width = CANVAS.clientWidth;
   CANVAS.height = CANVAS.clientHeight;
-  document.body.appendChild(CANVAS);
+  CANVAS.style = "background-color:white;border:1px solid;";
 
   const GL2 = CANVAS.getContext("webgl2");
 
-  GL2 instanceof WebGL2RenderingContext
-    ? null
-    : alert("failed to create webgl2 context");
-
-  GL2.viewport(0, 0, GL2.drawingBufferWidth, GL2.drawingBufferHeight);
-  GL2.enable(GL2.SCISSOR_TEST);
-  GL2.scissor(30, 10, 60, 60);
-  GL2.clearColor(1.0, 1.0, 0.0, 1.0);
-  GL2.clear(GL2.COLOR_BUFFER_BIT);
+  if (!(GL2 instanceof WebGL2RenderingContext)) {
+    alert("failed to create webgl2 context");
+  }
 }
 
 main();
