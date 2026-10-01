@@ -1,0 +1,16 @@
+WebGL / GLSL tester in 2127 bytes (minified).
+
+Compiles and runs glsl shaders. Supports everything that WebGL2 supports.
+
+Requirements:
+
+ * nix OR nodejs
+
+With nix:
+
+    nix build
+
+With nodejs:
+
+    cd src/
+    node minify.js
