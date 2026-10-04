@@ -18,6 +18,7 @@
         devShells.default = pkgs.mkShellNoCC {
           packages = [
             pkgs.typescript-language-server
+            pkgs.nodejs_26
           ];
         };
         formatter = pkgs.alejandra;
@@ -25,17 +26,16 @@
           name = "shrink";
           version = "0.0.1";
 
-          src = ./src;
+          src = ./.;
 
           buildInputs = [
             pkgs.nodejs-slim_26
           ];
 
-          buildPhase = "node minify.js";
+          buildPhase = "node src/minify.js";
 
           installPhase = ''
-            mkdir $out
-            cp uri.txt $out/
+            mv dist $out
           '';
         };
       }

@@ -1,0 +1,22 @@
+{
+  "name": "shrink",
+  "version": "1.0.0",
+  "description": "WebGL / GLSL tester in 2127 bytes (minified).",
+  "main": "index.js",
+  "scripts": {
+    "build": "node src/minify.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/x-9917638/shrinks-you.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "homepage": "https://github.com/x-9917638/shrinks-you#readme",
+  "devDependencies": {
+    "terser": "5.51.2",
+    "@plutotcool/glsl-bundler": "1.4.1"
+  }
+}
