@@ -14,8 +14,12 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { exit } from "node:process";
 import { minify as _gMinify } from "@plutotcool/glsl-bundler";
 import { minify_sync as _tMinify } from "terser";
+import { X509Certificate } from "node:crypto";
+
+const enumValue = (name) => Object.freeze({ toString: () => name });
 
 // RFC 3986 Sec. 2.2, and " "
 const RESERVED_CHARS = new Map([
@@ -79,33 +83,147 @@ const JAVASCRIPT_TYPES = [
 ];
 
 async function main() {
-  let html = readFileSync("src/index.html", "utf8");
+  const config = processArgs();
+
+  let html = readFileSync(config.inputFile, "utf8");
 
   html = processScripts(html);
   html = processStyles(html);
 
   html = htmlMinify(html);
 
+  let uri, bytes;
+
+  html = await compress(config, html);
+
+  if (config.forceBase64 === true) {
+    uri = makeB64URI(html);
+    bytes = uri.length;
+
+    finish(html, uri, bytes);
+    return;
+  }
+
+  let normal_uri, normal_size;
+  if (config.forceNoURLEncode) {
+    normal_uri = makeUnsafeURI(html);
+  } else {
+    normal_uri = makeSafeURI(html);
+  }
+  normal_size = normal_uri.length;
+
+  if (config.forceBase64 === false) {
+    finish(html, normal_uri, normal_size);
+    return;
+  }
+
   const b64_uri = makeB64URI(html);
   const b64_size = b64_uri.length;
 
-  const normal_uri = makeSafeURI(html);
-  const normal_size = normal_uri.length;
-
-  const uri = b64_size <= normal_size ? b64_uri : normal_uri;
-  const bytes = b64_size <= normal_size ? b64_size : normal_size;
+  uri = b64_size <= normal_size ? b64_uri : normal_uri;
+  bytes = b64_size <= normal_size ? b64_size : normal_size;
 
   console.info("base64 encoded: ", b64_size, "normal: ", normal_size);
 
-  writeOutputs(html, uri);
+  finish(html, uri, bytes);
+}
 
-  console.info(
-    bytes +
-      " / " +
-      LIMIT +
-      " bytes, " +
-      (bytes >= LIMIT ? `${bytes - LIMIT} over` : `${LIMIT - bytes} left`),
-  );
+const Compression = Object.freeze({
+  None: enumValue("Compression.None"),
+  Brotli: enumValue("Compression.Brotli"),
+  Deflate: enumValue("Compression.Deflate"),
+  DeflateRaw: enumValue("Compression.DeflateRaw"),
+  Gzip: enumValue("Compression.Gzip"),
+});
+
+function processArgs() {
+  const out = {
+    compress: undefined,
+    forceBase64: undefined,
+    forceNoURLEncode: false,
+    inputFile: undefined,
+  };
+
+  let positional_args = 0;
+  const args = process.argv.slice(2)[Symbol.iterator]();
+  for (const arg of args) {
+    switch (arg) {
+      case "-h":
+      case "--help":
+        console.log(
+          `${process.argv0} ${process.argv[1]} [options] <inputfile>\n`,
+        );
+        console.log(
+          '-c, --compress <algorithm>\n\tCompress with the given <algorithm>\n\tOne of "brotli", "deflate", "deflate-raw", "gzip", "none"',
+        );
+        console.log(
+          "-b, --b64\n\tForce base64 encoding\n\t[Default: whichever is smaller]",
+        );
+        console.log(
+          "-B, --no-b64\n\tForce not base64 encoding\n\t[Default: whichever is smaller]",
+        );
+        console.log(
+          "--non-compliant-uri\n\tDo not properly encode the URI.\n\tIn this case, the URI working is browser dependent.",
+        );
+        exit(0);
+      case "-c":
+      case "--compress":
+        switch (args.next().value) {
+          case "brotli":
+            console.warn(
+              "there is limited browser support for brotli compresion",
+            );
+            out.compress = Compression.Brotli;
+            break;
+          case "deflate":
+            out.compress = Compression.Deflate;
+            break;
+          case "deflate-raw":
+            out.compress = Compression.DeflateRaw;
+            break;
+          case "gzip":
+            out.compress = Compression.Gzip;
+            break;
+          case "none":
+            out.compress = Compression.None;
+            break;
+          case "zstd":
+            console.error(
+              "zstd compression is non-standard and unsupported on node.",
+            );
+            exit(1);
+          case undefined:
+            console.error("expected an argument to --compress");
+            exit(1);
+        }
+        break;
+      case "-b":
+      case "--b64":
+        out.forceBase64 = true;
+        break;
+      case "-B":
+      case "--no-b64":
+        out.forceBase64 = false;
+        break;
+      case "--non-compliant-uri":
+        out.forceNoURLEncode = true;
+        break;
+      default:
+        positional_args++;
+        if (positional_args > 1) {
+          console.error(`unexpected argument: ${arg}`);
+          exit(1);
+        }
+        out.inputFile = arg;
+    }
+  }
+
+  if (out.inputFile === undefined) {
+    console.error("<inputfile> is required");
+    exit(1);
+  }
+
+  return out;
 }
 
 /**
@@ -158,20 +276,113 @@ function processStyles(src) {
   });
 }
 
+async function compress(config, html) {
+  /** @type {ReadableStream} */
+  const stream = ReadableStream.from(html);
+  /** @type {ReadableStreamDefaultReader<Uint8Array<ArrayBuffer>>} */
+  let stream_reader, algorithm;
+  switch (config.compress) {
+    case Compression.None:
+      stream_reader = new Object();
+      stream_reader.exhausted = false;
+      stream_reader.read = async () => {
+        if (stream_reader.exhausted) {
+          return { done: true, value: undefined };
+        } else {
+          stream_reader.exhausted = true;
+          return { done: false, value: new TextEncoder().encode(html) };
+        }
+      };
+      break;
+    case Compression.Brotli:
+      algorithm = "brotli";
+      stream_reader = stream
+        .pipeThrough(new CompressionStream("brotli"))
+        .getReader();
+      break;
+    case Compression.Deflate:
+      algorithm = "deflate";
+      stream_reader = stream
+        .pipeThrough(new CompressionStream("deflate"))
+        .getReader();
+      break;
+    case undefined:
+    case Compression.DeflateRaw:
+      algorithm = "deflate-raw";
+      stream_reader = stream
+        .pipeThrough(new CompressionStream("deflate-raw"))
+        .getReader();
+      break;
+    case Compression.Gzip:
+      algorithm = "gzip";
+      stream_reader = stream
+        .pipeThrough(new CompressionStream("gzip"))
+        .getReader();
+      break;
+  }
+
+  const chunks = [];
+
+  while (true) {
+    const { done, value } = await stream_reader.read();
+
+    if (done) {
+      break;
+    }
+    chunks.push(value);
+  }
+
+  const totalLength = chunks.reduce((acc, value) => acc + value.length, 0);
+  const compressed = new Uint8Array(totalLength);
+  let length = 0;
+  for (const chunk of chunks) {
+    compressed.set(chunk, length);
+    length += chunk.length;
+  }
+
+  return algorithm
+    ? `<!doctype html><title>_</title><script>a=Uint8Array,r=Response,new r(new r(a.from(atob("${Buffer.from(compressed).toString("base64")}"),c=>c.charCodeAt())).body.pipeThrough(new DecompressionStream("${algorithm}"))).text().then((t,d=document)=>(d.open(),d.write(t),d.close()))</script>`
+    : Buffer.from(compressed).toString("utf-8");
+}
+
 /**
  * @param {string} html
  */
 function makeB64URI(html) {
-  return `data:text/html;base64,${Buffer.from(html).toString("base64")}`;
+  return `data:text/html;charset=utf-8;base64,${Buffer.from(html).toString("base64")}`;
 }
 
 /**
  * @param {string} html
  */
 function makeSafeURI(html) {
-  return `data:text/html,${Array.from(html)
+  return `data:text/html;charset=utf-8,${Array.from(html)
     .map((c) => RESERVED_CHARS.getOrInsert(c, c))
     .join("")}`;
+}
+
+/**
+ * @param {string} html
+ */
+function makeUnsafeURI(html) {
+  return `data:text/html;charset=utf-8,${html}`;
+}
+
+/**
+ * @param {string} html
+ * @param {string} uri
+ * @param {number} bytes
+ */
+function finish(html, uri, bytes) {
+  writeOutputs(html, uri);
+
+  console.info(
+    bytes +
+      " / " +
+      LIMIT +
+      " bytes, " +
+      (bytes >= LIMIT ? `${bytes - LIMIT} over` : `${LIMIT - bytes} left`),
+  );
 }
 
 /**
