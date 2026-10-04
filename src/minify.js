@@ -366,7 +366,7 @@ function makeSafeURI(html) {
  * @param {string} html
  */
 function makeUnsafeURI(html) {
-  return `data:text/html;charset=utf-8,${html}`;
+  return `data:text/html;charset=utf-8,${html.replace(/%/g, "%25").replace(/#/g, "%23").replace(/\n/g, "%0A")}`;
 }
 
 /**
