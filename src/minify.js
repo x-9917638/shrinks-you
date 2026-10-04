@@ -17,9 +17,16 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { exit } from "node:process";
 import { minify as _gMinify } from "@plutotcool/glsl-bundler";
 import { minify_sync as _tMinify } from "terser";
-import { X509Certificate } from "node:crypto";
 
 const enumValue = (name) => Object.freeze({ toString: () => name });
+
+function error(...args) {
+  console.error("\x1b[0;31merror:\x1b[0m", ...args);
+}
+
+function warn(...args) {
+  console.warn("\x1b[0;33mwarning:\x1b[0m", ...args);
+}
 
 // RFC 3986 Sec. 2.2, and " "
 const RESERVED_CHARS = new Map([
@@ -150,19 +157,19 @@ function processArgs() {
     switch (arg) {
       case "-h":
       case "--help":
-        console.log(
+        console.info(
           `${process.argv0} ${process.argv[1]} [options] <inputfile>\n`,
         );
-        console.log(
+        console.info(
           '-c, --compress <algorithm>\n\tCompress with the given <algorithm>\n\tOne of "brotli", "deflate", "deflate-raw", "gzip", "none"',
         );
-        console.log(
+        console.info(
           "-b, --b64\n\tForce base64 encoding\n\t[Default: whichever is smaller]",
         );
-        console.log(
+        console.info(
           "-B, --no-b64\n\tForce not base64 encoding\n\t[Default: whichever is smaller]",
         );
-        console.log(
+        console.info(
           "--non-compliant-uri\n\tDo not properly encode the URI.\n\tIn this case, the URI working is browser dependent.",
         );
         exit(0);
@@ -170,9 +177,7 @@ function processArgs() {
       case "--compress":
         switch (args.next().value) {
           case "brotli":
-            console.warn(
-              "there is limited browser support for brotli compresion",
-            );
+            warn("there is limited browser support for brotli compresion");
             out.compress = Compression.Brotli;
             break;
           case "deflate":
@@ -188,12 +193,13 @@ function processArgs() {
             out.compress = Compression.None;
             break;
           case "zstd":
-            console.error(
-              "zstd compression is non-standard and unsupported on node.",
-            );
+            error("zstd compression is non-standard and unsupported on node.");
             exit(1);
           case undefined:
-            console.error("expected an argument to --compress");
+            error("expected an argument to --compress");
+            exit(1);
+          default:
+            error(`unknown algorithm`);
             exit(1);
         }
         break;
@@ -211,7 +217,7 @@ function processArgs() {
       default:
         positional_args++;
         if (positional_args > 1) {
-          console.error(`unexpected argument: ${arg}`);
+          error(`unexpected argument: ${arg}`);
           exit(1);
         }
         out.inputFile = arg;
@@ -219,7 +225,7 @@ function processArgs() {
   }
 
   if (out.inputFile === undefined) {
-    console.error("<inputfile> is required");
+    error("<inputfile> is required");
     exit(1);
   }
 
