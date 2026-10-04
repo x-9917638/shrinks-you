@@ -358,7 +358,7 @@ function makeB64URI(html) {
  */
 function makeSafeURI(html) {
   return `data:text/html;charset=utf-8,${Array.from(html)
-    .map((c) => RESERVED_CHARS.getOrInsert(c, c))
+    .map((c) => (RESERVED_CHARS.has(c) ? RESERVED_CHARS.get(c) : c))
     .join("")}`;
 }
 
