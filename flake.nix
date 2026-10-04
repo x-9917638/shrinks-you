@@ -32,7 +32,7 @@
             pkgs.nodejs-slim_26
           ];
 
-          buildPhase = "node src/minify.js --compress defalte src/index.html";
+          buildPhase = "node src/minify.js --compress deflate src/index.html";
 
           installPhase = ''
             mv dist $out
