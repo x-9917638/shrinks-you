@@ -99,15 +99,13 @@ async function main() {
 
   html = htmlMinify(html);
 
-  let uri, bytes;
-
   html = await compress(config, html);
 
-  if (config.forceBase64 === true) {
-    uri = makeB64URI(html);
-    bytes = uri.length;
+  const b64_uri = makeB64URI(html);
+  const b64_size = b64_uri.length;
 
-    finish(html, uri, bytes);
+  if (config.forceBase64 === true) {
+    finish(html, b64_uri, b64_size);
     return;
   }
 
@@ -124,11 +122,8 @@ async function main() {
     return;
   }
 
-  const b64_uri = makeB64URI(html);
-  const b64_size = b64_uri.length;
-
-  uri = b64_size <= normal_size ? b64_uri : normal_uri;
-  bytes = b64_size <= normal_size ? b64_size : normal_size;
+  const uri = b64_size <= normal_size ? b64_uri : normal_uri;
+  const bytes = b64_size <= normal_size ? b64_size : normal_size;
 
   console.info("base64 encoded: ", b64_size, "normal: ", normal_size);
 
