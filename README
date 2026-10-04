@@ -12,5 +12,13 @@ With nix:
 
 With nodejs:
 
-    cd src/
-    node minify.js
+    node src/minify.js src/index.html
+
+See additional options on the minifier with
+
+    node src/minify.js --help
+
+If using the minifier in your own project, it dependes on
+
+    * `terser` = 5.51.2
+    * `@plutotcool/glsl-bundler` = 1.4.1
