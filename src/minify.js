@@ -284,16 +284,9 @@ async function compress(config, html) {
   let stream_reader, algorithm;
   switch (config.compress) {
     case Compression.None:
-      stream_reader = new Object();
-      stream_reader.exhausted = false;
-      stream_reader.read = async () => {
-        if (stream_reader.exhausted) {
-          return { done: true, value: undefined };
-        } else {
-          stream_reader.exhausted = true;
-          return { done: false, value: new TextEncoder().encode(html) };
-        }
-      };
+      stream_reader = stream
+        .pipeThrough(new TextEncoderStream())
+        .getReader();
       break;
     case Compression.Brotli:
       algorithm = "brotli";
