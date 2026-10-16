@@ -278,65 +278,32 @@ function processStyles(src) {
 }
 
 async function compress(config, html) {
-  /** @type {ReadableStream} */
-  const stream = ReadableStream.from(html);
-  /** @type {ReadableStreamDefaultReader<Uint8Array<ArrayBuffer>>} */
-  let stream_reader, algorithm;
+  /** @type {ReadableStream<string>} */
+  let stream = ReadableStream.from(html);
+
   switch (config.compress) {
     case Compression.None:
-      stream_reader = stream
-        .pipeThrough(new TextEncoderStream())
-        .getReader();
+      stream = stream.pipeThrough(new TextEncoderStream());
       break;
     case Compression.Brotli:
-      algorithm = "brotli";
-      stream_reader = stream
-        .pipeThrough(new CompressionStream("brotli"))
-        .getReader();
+      stream = stream.pipeThrough(new CompressionStream("brotli"));
       break;
     case Compression.Deflate:
-      algorithm = "deflate";
-      stream_reader = stream
-        .pipeThrough(new CompressionStream("deflate"))
-        .getReader();
+      stream = stream.pipeThrough(new CompressionStream("deflate"));
       break;
-    case undefined:
     case Compression.DeflateRaw:
-      algorithm = "deflate-raw";
-      stream_reader = stream
-        .pipeThrough(new CompressionStream("deflate-raw"))
-        .getReader();
+      stream = stream.pipeThrough(new CompressionStream("deflate-raw"));
       break;
     case Compression.Gzip:
-      algorithm = "gzip";
-      stream_reader = stream
-        .pipeThrough(new CompressionStream("gzip"))
-        .getReader();
+      stream = stream.pipeThrough(new CompressionStream("gzip"));
       break;
   }
 
-  const chunks = [];
+  const compressed = Buffer.from((await new Response(stream).bytes()).buffer);
 
-  while (true) {
-    const { done, value } = await stream_reader.read();
-
-    if (done) {
-      break;
-    }
-    chunks.push(value);
-  }
-
-  const totalLength = chunks.reduce((acc, value) => acc + value.length, 0);
-  const compressed = new Uint8Array(totalLength);
-  let length = 0;
-  for (const chunk of chunks) {
-    compressed.set(chunk, length);
-    length += chunk.length;
-  }
-
-  return algorithm
-    ? `<!doctype html><title>_</title><script>a=Uint8Array,r=Response,new r(new r(a.from(atob("${Buffer.from(compressed).toString("base64")}"),c=>c.charCodeAt())).body.pipeThrough(new DecompressionStream("${algorithm}"))).text().then((t,d=document)=>(d.open(),d.write(t),d.close()))</script>`
-    : Buffer.from(compressed).toString("utf-8");
+  return config.compress === Compression.None
+    ? Buffer.from(compressed).toString("utf-8")
+    : `<!doctype html><title>_</title><script>a=Uint8Array,r=Response,new r(new r(a.from(atob("${Buffer.from(compressed).toString("base64")}"),c=>c.charCodeAt())).body.pipeThrough(new DecompressionStream("${config.compress}"))).text().then((t,d=document)=>(d.open(),d.write(t),d.close()))</script>`;
 }
 
 /**
