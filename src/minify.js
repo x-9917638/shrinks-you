@@ -130,18 +130,34 @@ async function main() {
   finish(html, uri, bytes);
 }
 
+/**
+ * @typedef {Readonly<{toString: () => string;}>} Compression
+ **/
+
+/**
+ * @readonly
+ * @enum {Compression}
+ */
 const Compression = Object.freeze({
-  None: enumValue("Compression.None"),
-  Brotli: enumValue("Compression.Brotli"),
-  Deflate: enumValue("Compression.Deflate"),
-  DeflateRaw: enumValue("Compression.DeflateRaw"),
-  Gzip: enumValue("Compression.Gzip"),
+  None: enumValue("none"),
+  Brotli: enumValue("brotli"),
+  Deflate: enumValue("deflate"),
+  DeflateRaw: enumValue("deflate-raw"),
+  Gzip: enumValue("gzip"),
 });
+
+/**
+ * @typedef {Object} Config
+ * @property {Compression} compress
+ * @property {?boolean} forceBase64
+ * @property {boolean} forceNoURLEncode
+ * @property {inputFile} string
+ */
 
 function processArgs() {
   const out = {
-    compress: undefined,
-    forceBase64: undefined,
+    compress: Compression.DeflateRaw,
+    forceBase64: null,
     forceNoURLEncode: false,
     inputFile: undefined,
   };
@@ -277,6 +293,10 @@ function processStyles(src) {
   });
 }
 
+/**
+ * @param {Config} config
+ * @param {string} html
+ */
 async function compress(config, html) {
   /** @type {ReadableStream<string>} */
   let stream = ReadableStream.from(html);
