@@ -315,16 +315,10 @@ async function compress(config, html) {
       stream = stream.pipeThrough(new TextEncoderStream());
       break;
     case Compression.Brotli:
-      stream = stream.pipeThrough(new CompressionStream("brotli"));
-      break;
     case Compression.Deflate:
-      stream = stream.pipeThrough(new CompressionStream("deflate"));
-      break;
     case Compression.DeflateRaw:
-      stream = stream.pipeThrough(new CompressionStream("deflate-raw"));
-      break;
     case Compression.Gzip:
-      stream = stream.pipeThrough(new CompressionStream("gzip"));
+      stream = stream.pipeThrough(new CompressionStream(config.compress));
       break;
   }
 
