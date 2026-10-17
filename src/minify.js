@@ -18,6 +18,10 @@ import { exit } from "node:process";
 import { minify as _gMinify } from "@plutotcool/glsl-bundler";
 import { minify_sync as _tMinify } from "terser";
 
+/**
+ * @param {string} name
+ * @returns {readonly {toString: () => string;}}
+ */
 const enumValue = (name) => Object.freeze({ toString: () => name });
 
 function error(...args) {
@@ -131,7 +135,7 @@ async function main() {
 }
 
 /**
- * @typedef {Readonly<{toString: () => string;}>} Compression
+ * @typedef {readonly {toString: () => string;}} Compression
  **/
 
 /**
@@ -154,6 +158,9 @@ const Compression = Object.freeze({
  * @property {inputFile} string
  */
 
+/**
+ * @returns {Config}
+ */
 function processArgs() {
   const out = {
     compress: Compression.DeflateRaw,
@@ -248,6 +255,7 @@ function processArgs() {
  */
 function processScripts(html) {
   return html.replaceAll(SCRIPT_PATTERN, (_, p1, p2, p3, p4, p5) => {
+    /** @type {(string | undefined)[]} */
     const [init_attrs, type1, type2, addi_attrs, script] = [p1, p2, p3, p4, p5];
     const type = type1 !== undefined ? type1 : type2;
 
@@ -280,6 +288,7 @@ function processScripts(html) {
  */
 function processStyles(src) {
   return src.replaceAll(STYLE_PATTERN, (_, p1, p2) => {
+    /** @type {(string | undefined)[]} */
     const [attrs, css] = [p1, p2];
     let frag = "<style";
     frag += attrs ? ` ${attrs.trim()}` : "";
