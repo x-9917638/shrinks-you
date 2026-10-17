@@ -325,8 +325,8 @@ async function compress(config, html) {
   const compressed = Buffer.from((await new Response(stream).bytes()).buffer);
 
   return config.compress === Compression.None
-    ? Buffer.from(compressed).toString("utf-8")
-    : `<!doctype html><title>_</title><script>a=Uint8Array,r=Response,new r(new r(a.from(atob("${Buffer.from(compressed).toString("base64")}"),c=>c.charCodeAt())).body.pipeThrough(new DecompressionStream("${config.compress}"))).text().then((t,d=document)=>(d.open(),d.write(t),d.close()))</script>`;
+    ? compressed.toString("utf-8")
+    : `<!doctype html><title>_</title><script>a=Uint8Array,r=Response,new r(new r(a.from(atob("${compressed.toString("base64")}"),c=>c.charCodeAt())).body.pipeThrough(new DecompressionStream("${config.compress}"))).text().then((t,d=document)=>(d.open(),d.write(t),d.close()))</script>`;
 }
 
 /**
